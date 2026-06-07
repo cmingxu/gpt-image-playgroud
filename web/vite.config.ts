@@ -9,8 +9,12 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless',
+    },
     proxy: {
-      '/api': 'http://localhost:8081',
+      '/api': 'http://localhost:8086',
     },
   },
 })

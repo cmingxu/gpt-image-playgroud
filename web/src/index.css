@@ -1,3 +1,5 @@
+@import 'tldraw/tldraw.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -60,4 +62,38 @@ body {
 
 body {
   margin: 0;
+}
+
+/* ── tldraw theme overrides ── match site design tokens ── */
+
+.tl-container {
+  /* Canvas background — pure white matching site --background */
+  --tl-color-background: hsl(0, 0%, 100%);
+
+  /* Grid — subdued, matching site muted tones */
+  --tl-color-grid: hsl(240, 5%, 86%);
+
+  /* Primary accent — rose/pink matching site --primary */
+  --tl-color-primary: hsl(346.8, 77.2%, 49.8%);
+  --tl-color-selected: hsl(346.8, 77.2%, 49.8%);
+  --tl-color-selected-contrast: hsl(355.7, 100%, 97.3%);
+  --tl-color-selection-fill: hsla(346.8, 77.2%, 49.8%, 0.18);
+  --tl-color-selection-stroke: hsl(346.8, 77.2%, 49.8%);
+  --tl-color-focus: hsl(346.8, 77.2%, 49.8%);
+
+  /* Borders — match site --border (240 5.9% 90%) */
+  --tl-color-low-border: hsl(240, 5.9%, 90%);
+  --tl-color-divider: hsl(240, 5.9%, 90%);
+
+  /* Panel surfaces — match site card/background */
+  --tl-color-low: hsl(240, 4.8%, 95.9%);
+  --tl-color-panel: hsl(0, 0%, 100%);
+  --tl-color-panel-contrast: hsl(0, 0%, 100%);
+
+  /* Radii — closer to site --radius (0.75rem ≈ 12px) */
+  --tl-radius-0: 3px;
+  --tl-radius-1: 5px;
+  --tl-radius-2: 8px;
+  --tl-radius-3: 10px;
+  --tl-radius-4: 12px;
 }

@@ -20,23 +20,32 @@ func Register(r *gin.Engine) {
 	if err != nil {
 		return
 	}
-	fsys := http.FS(d)
 
+	// Serve static files from dist/ at root path
 	r.GET("/", func(c *gin.Context) {
-		serveIndexFromFS(c, d)
+		serveFileFromFS(c, d, "index.html", "text/html; charset=utf-8")
 	})
 
 	r.GET("/assets/*path", func(c *gin.Context) {
-		p := strings.TrimPrefix(c.Param("path"), "/")
-		if p == "" {
-			c.Status(http.StatusNotFound)
-			return
-		}
-		if info, err := fs.Stat(d, "assets/"+p); err == nil && !info.IsDir() {
-			c.FileFromFS("assets/"+p, fsys)
-			return
-		}
-		c.Status(http.StatusNotFound)
+		serveStaticFromFS(c, d, "assets", c.Param("path"))
+	})
+
+	r.GET("/models/*path", func(c *gin.Context) {
+		serveStaticFromFS(c, d, "models", c.Param("path"))
+	})
+
+	r.GET("/ort/*path", func(c *gin.Context) {
+		serveStaticFromFS(c, d, "ort", c.Param("path"))
+	})
+
+	r.GET("/demo.png", func(c *gin.Context) {
+		serveFileFromFS(c, d, "demo.png", "image/png")
+	})
+	r.GET("/favicon.svg", func(c *gin.Context) {
+		serveFileFromFS(c, d, "favicon.svg", "image/svg+xml")
+	})
+	r.GET("/icons.svg", func(c *gin.Context) {
+		serveFileFromFS(c, d, "icons.svg", "image/svg+xml")
 	})
 
 	r.NoRoute(func(c *gin.Context) {
@@ -45,18 +54,32 @@ func Register(r *gin.Engine) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
-		serveIndexFromFS(c, d)
+		serveFileFromFS(c, d, "index.html", "text/html; charset=utf-8")
 	})
 }
 
-func serveIndexFromFS(c *gin.Context, dist fs.FS) {
-	f, err := dist.Open("index.html")
+func serveStaticFromFS(c *gin.Context, dist fs.FS, prefix, p string) {
+	p = strings.TrimPrefix(p, "/")
+	if p == "" {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	filePath := prefix + "/" + p
+	if info, err := fs.Stat(dist, filePath); err == nil && !info.IsDir() {
+		c.FileFromFS(filePath, http.FS(dist))
+		return
+	}
+	c.Status(http.StatusNotFound)
+}
+
+func serveFileFromFS(c *gin.Context, dist fs.FS, filePath, contentType string) {
+	f, err := dist.Open(filePath)
 	if err != nil {
 		c.Status(http.StatusNotFound)
 		return
 	}
 	defer f.Close()
 	b, _ := io.ReadAll(f)
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.Data(http.StatusOK, "text/html; charset=utf-8", b)
+	c.Header("Content-Type", contentType)
+	c.Data(http.StatusOK, contentType, b)
 }

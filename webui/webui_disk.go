@@ -18,19 +18,30 @@ func Register(r *gin.Engine) {
 		return
 	}
 
-	fs := http.Dir(distDir)
-
 	r.GET("/", func(c *gin.Context) {
-		serveIndexFromPath(c, indexPath)
+		serveFile(c, indexPath, "text/html; charset=utf-8")
 	})
 
 	r.GET("/assets/*path", func(c *gin.Context) {
-		p := strings.TrimPrefix(c.Param("path"), "/")
-		if p == "" {
-			c.Status(http.StatusNotFound)
-			return
-		}
-		c.FileFromFS(filepath.Join("assets", p), fs)
+		serveStatic(c, distDir, "assets", c.Param("path"))
+	})
+
+	r.GET("/models/*path", func(c *gin.Context) {
+		serveStatic(c, distDir, "models", c.Param("path"))
+	})
+
+	r.GET("/ort/*path", func(c *gin.Context) {
+		serveStatic(c, distDir, "ort", c.Param("path"))
+	})
+
+	r.GET("/demo.png", func(c *gin.Context) {
+		serveFile(c, filepath.Join(distDir, "demo.png"), "image/png")
+	})
+	r.GET("/favicon.svg", func(c *gin.Context) {
+		serveFile(c, filepath.Join(distDir, "favicon.svg"), "image/svg+xml")
+	})
+	r.GET("/icons.svg", func(c *gin.Context) {
+		serveFile(c, filepath.Join(distDir, "icons.svg"), "image/svg+xml")
 	})
 
 	r.NoRoute(func(c *gin.Context) {
@@ -39,16 +50,25 @@ func Register(r *gin.Engine) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
-		serveIndexFromPath(c, indexPath)
+		serveFile(c, indexPath, "text/html; charset=utf-8")
 	})
 }
 
-func serveIndexFromPath(c *gin.Context, indexPath string) {
-	b, err := os.ReadFile(indexPath)
+func serveStatic(c *gin.Context, distDir, prefix, p string) {
+	p = strings.TrimPrefix(p, "/")
+	if p == "" {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	c.FileFromFS(filepath.Join(prefix, p), http.Dir(distDir))
+}
+
+func serveFile(c *gin.Context, filePath, contentType string) {
+	b, err := os.ReadFile(filePath)
 	if err != nil {
 		c.Status(http.StatusNotFound)
 		return
 	}
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.Data(http.StatusOK, "text/html; charset=utf-8", b)
+	c.Header("Content-Type", contentType)
+	c.Data(http.StatusOK, contentType, b)
 }

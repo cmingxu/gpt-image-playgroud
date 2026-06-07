@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"willing/internal/admin"
+	"willing/internal/agent"
 	"willing/internal/config"
 	"willing/internal/db"
 )
@@ -39,8 +40,30 @@ func main() {
 		defer store.Close()
 	}
 
+	var agentSvc *agent.Service
+	if cfg.SiliconFlowAPIKey != "" {
+		svc, err := agent.New(ctx, agent.Config{
+			SiliconFlowAPIKey:  cfg.SiliconFlowAPIKey,
+			SiliconFlowBaseURL: cfg.SiliconFlowBaseURL,
+			SiliconFlowModel:   cfg.SiliconFlowModel,
+			ImageAPIEndpoint:   cfg.ImageAPIEndpoint,
+			ImageAPIKey:        cfg.ImageAPIKey,
+		})
+		if err != nil {
+			log.Printf("agent init warning: %v", err)
+		} else {
+			agentSvc = svc
+			log.Println("agent service initialized")
+		}
+	} else {
+		log.Println("agent not configured (SILICONFLOW_API_KEY not set)")
+	}
+
 	adminHandler := admin.New(admin.Config{
-		DB: store,
+		DB:               store,
+		Agent:            agentSvc,
+		ImageAPIEndpoint: cfg.ImageAPIEndpoint,
+		ImageAPIKey:      cfg.ImageAPIKey,
 	})
 
 	adminSrv := &http.Server{

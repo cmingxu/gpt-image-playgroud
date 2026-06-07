@@ -1,5 +1,5 @@
-import { ImageGeneratorPage } from './pages/ImageGenerator'
+import { PlaygroundPage } from './pages/Playground'
 
 export default function App() {
-  return <ImageGeneratorPage />
+  return <PlaygroundPage />
 }

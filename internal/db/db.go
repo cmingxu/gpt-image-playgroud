@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -88,7 +89,7 @@ func (s *Store) Ping(ctx context.Context) error {
 }
 
 func (s *Store) Migrate(ctx context.Context) error {
-	if err := s.db.WithContext(ctx).AutoMigrate(&models.SystemConfig{}); err != nil {
+	if err := s.db.WithContext(ctx).AutoMigrate(&models.SystemConfig{}, &models.GenerationHistory{}, &models.CanvasSnapshot{}); err != nil {
 		return err
 	}
 
@@ -141,6 +142,74 @@ func (s *Store) UpdateSystemConfig(ctx context.Context, u SystemConfigUpdate) (m
 	return cfg, nil
 }
 
+type SaveHistoryParams struct {
+	TaskID     string
+	GenType    string
+	Status     string
+	Prompt     string
+	ResultURLs []string
+	InputURLs  []string
+	ErrorMsg   string
+}
+
+func (s *Store) SaveHistory(ctx context.Context, params SaveHistoryParams) (models.GenerationHistory, error) {
+	urlsJSON, err := json.Marshal(params.ResultURLs)
+	if err != nil {
+		return models.GenerationHistory{}, err
+	}
+	inputJSON, err := json.Marshal(params.InputURLs)
+	if err != nil {
+		return models.GenerationHistory{}, err
+	}
+
+	record := models.GenerationHistory{
+		TaskID:       params.TaskID,
+		GenType:      params.GenType,
+		Status:       params.Status,
+		Prompt:       params.Prompt,
+		ResultURLs:   string(urlsJSON),
+		InputURLs:    string(inputJSON),
+		ErrorMsg:     params.ErrorMsg,
+		CreatedAtUTC: time.Now().UTC(),
+	}
+
+	if err := s.db.WithContext(ctx).Create(&record).Error; err != nil {
+		return models.GenerationHistory{}, err
+	}
+	return record, nil
+}
+
+func (s *Store) ListHistory(ctx context.Context, limit, offset int) ([]models.GenerationHistory, int64, error) {
+	var items []models.GenerationHistory
+	var total int64
+
+	if err := s.db.WithContext(ctx).Model(&models.GenerationHistory{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := s.db.WithContext(ctx).
+		Order("created_at_utc DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
+}
+
+func (s *Store) GetHistory(ctx context.Context, id int64) (models.GenerationHistory, error) {
+	var record models.GenerationHistory
+	if err := s.db.WithContext(ctx).First(&record, id).Error; err != nil {
+		return models.GenerationHistory{}, err
+	}
+	return record, nil
+}
+
+func (s *Store) DeleteHistory(ctx context.Context, id int64) error {
+	return s.db.WithContext(ctx).Delete(&models.GenerationHistory{}, id).Error
+}
+
 func ensureSQLiteDir(dsn string) error {
 	path := strings.TrimSpace(dsn)
 	if strings.HasPrefix(path, "file:") {
@@ -162,4 +231,31 @@ func ensureSQLiteDir(dsn string) error {
 		return err
 	}
 	return nil
+}
+
+// SaveCanvasSnapshot upserts the canvas state and chat log for a session.
+func (s *Store) SaveCanvasSnapshot(ctx context.Context, sessionID, canvasJSON, chatJSON string) error {
+	snap := models.CanvasSnapshot{
+		SessionID: sessionID,
+		Canvas:    canvasJSON,
+		ChatLog:   chatJSON,
+		UpdatedAt: time.Now(),
+	}
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "session_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"canvas", "chat_log", "updated_at"}),
+	}).Create(&snap).Error
+}
+
+// GetCanvasSnapshot returns the saved canvas state and chat log for a session.
+func (s *Store) GetCanvasSnapshot(ctx context.Context, sessionID string) (*models.CanvasSnapshot, error) {
+	var snap models.CanvasSnapshot
+	err := s.db.WithContext(ctx).Where("session_id = ?", sessionID).First(&snap).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &snap, nil
 }

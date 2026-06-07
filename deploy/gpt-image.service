@@ -1,0 +1,15 @@
+[Unit]
+Description=GPT Image Playground
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/lib/gpt-image
+Environment="ADMIN_ADDR=:8086"
+ExecStart=/usr/local/bin/gpt-image
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
